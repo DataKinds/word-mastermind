@@ -41,7 +41,7 @@ checkValidity :: String -> GS.GameState rng -> Either String ()
 checkValidity guess gs
     | length guess > length (GS.targetWord gs) = Left "Your word is too long!"
     | length guess < length (GS.targetWord gs) = Left "Your word is too short!"
-    | not (isValidLetters (GS.letters gs) guess) = Left "Your word used letters that aren't in the letter bank!"
+--    | not (isValidLetters (GS.letters gs) guess) = Left "Your word used letters that aren't in the letter bank!"
     | not (isValidWord (GS.wordList $ GS.config gs) guess) = Left (guess ++ " is not a word!")
     | otherwise = Right ()
 
@@ -65,15 +65,23 @@ makeGuess guess gs =
                 disableLetters letterMap lettersToReject
 
 gameLoop :: GS.GameState rng -> IO ()
-gameLoop gs = do
-    print gs
-    guess <- getLine
-    let gs' = makeGuess guess gs
-    case gs' of
-        Right gs'' -> gameLoop gs''
-        Left err -> do
-            putStrLn err
-            gameLoop gs
+gameLoop gs =
+    if GS.maxGuesses (GS.config gs) < length (GS.guessedWords gs) then do
+        putStrLn "\ESC[31mYou lose!"
+        putStrLn ("The word was " ++ GS.targetWord gs ++ ".\ESC[0m")
+    else do
+        print gs
+        guess <- getLine
+        if map toUpper guess == GS.targetWord gs then do
+            putStrLn "\ESC[32mYou win!"
+            putStrLn ("It only took you " ++ show (length (GS.guessedWords gs)) ++ " guesses.\ESC[0m")
+        else do
+            let gs' = makeGuess guess gs
+            case gs' of
+                Right gs'' -> gameLoop gs''
+                Left err -> do
+                    putStrLn err
+                    gameLoop gs
 
 main :: IO ()
 main = do
