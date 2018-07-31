@@ -11,7 +11,7 @@ mkStdGameState :: IO (GS.GameState StdGen)
 mkStdGameState = do
     rng <- newStdGen
     wordList <- readFile "/usr/share/dict/words"
-    let prunedList = pruneWordList [7] $ lines wordList
+    let prunedList = pruneWordList [3] $ lines wordList
     let (wordIndex, rng') = randomR (0, length prunedList - 1) rng
 
     return GS.GameState {
@@ -47,9 +47,11 @@ checkValidity guess gs
 
 makeGuess :: String -> GS.GameState rng -> Either String (GS.GameState rng)
 makeGuess guess gs =
-    checkValidity (formatGuess guess) gs >> Right (gs { 
-        GS.guessedWords = formatGuess guess : GS.guessedWords gs, 
-        GS.letters = rejectLetters (GS.letters gs) (GS.targetWord gs) guess
+    let guess' = formatGuess guess
+    in
+    checkValidity guess' gs >> Right (gs { 
+        GS.guessedWords = guess' : GS.guessedWords gs, 
+        GS.letters = rejectLetters (GS.letters gs) (GS.targetWord gs) guess'
     })
     where
         formatGuess :: String -> String
