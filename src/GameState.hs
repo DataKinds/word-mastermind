@@ -4,6 +4,8 @@ module GameState where
 
 import System.Random
 import Data.List
+import Debug.Trace
+import qualified Data.Map.Strict as Map
 
 data Letter = Letter {
     letter :: Char,
@@ -11,27 +13,35 @@ data Letter = Letter {
 }
 
 instance Show Letter where
-    show l = [letter l]
+    show Letter { letter = l, disabled = True } = concat ["\ESC[38;5;238m", [l], "\ESC[0m"]
+    show Letter { letter = l, disabled = False } = [l]
 
 data GameConfig = GameConfig {
     maxGuesses :: Int,
-    wordListPath :: String
+    wordList :: [String]
 }
 
 data GameState rng = GameState {
     targetWord :: String,
     guessedWords :: [String],
-    letters :: [Letter],
+    letters :: Map.Map Char Letter,
     config :: GameConfig,
-    randomGen :: (RandomGen rng) => rng
+    randomGen :: (Random rng) => rng
 }
 
+-- THIS FUNCTION IS PARTIAL
 formatGuessedWord :: String -> String -> String
-formatGuessedWord target guess = unwords $ map charAsBlueString guess
+formatGuessedWord target guess = unwords $ zipWith (curry charIndexToColor) guess [0..]
     where
         charAsBlueString char = concat ["\ESC[34m", [char], "\ESC[0m"]
-        charAsYellowString char = concat ["\ESC[34m", [char], "\ESC[0m"]
-        charAsRedString char = concat ["\ESC[34m", [char], "\ESC[0m"]
+        charAsYellowString char = concat ["\ESC[33m", [char], "\ESC[0m"]
+        charAsGreenString char = concat ["\ESC[32m", [char], "\ESC[0m"]
+
+        charIndexToColor :: (Char, Int) -> String
+        charIndexToColor (char, index)
+            | (target !! index) == char = charAsGreenString char
+            | char `elem` target = charAsYellowString char
+            | otherwise = charAsBlueString char
 
 instance Show (GameState rg) where
     show gs = (intercalate "\n" . concat)
@@ -40,10 +50,10 @@ instance Show (GameState rg) where
             concat $ replicate (maxGuesses (config gs) - length (guessedWords gs)) [
                 concat $ replicate (length $ targetWord gs) "_ "
             ],
-            map (formatGuessedWord (targetWord gs)) (guessedWords gs),
+            reverse $ map (formatGuessedWord (targetWord gs)) (guessedWords gs),
             [""],
             ["Letters in play:"],
-            [unwords $ map show (letters gs)],
+            [unwords $ Map.elems $ fmap show (letters gs)],
             [""],
             ["Enter your guess:"]
         ]

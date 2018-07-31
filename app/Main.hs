@@ -2,33 +2,67 @@ module Main where
 
 import System.Random
 import Data.Char
+import Debug.Trace
+import qualified Data.Map.Strict as Map
 import qualified GameState as GS
 
-mkStdGameState :: RandomGen rng => rng -> GS.GameState rng
-mkStdGameState rng = 
-    GS.GameState {
-        GS.targetWord = "WORD",
+
+mkStdGameState :: IO (GS.GameState StdGen)
+mkStdGameState = do
+    rng <- newStdGen
+    wordList <- readFile "/usr/share/dict/cracklib-small"
+    let prunedList = pruneWordList $ lines wordList
+    let (wordIndex, rng') = randomR (0, length prunedList - 1) rng
+
+    return GS.GameState {
+        GS.targetWord = map toUpper (prunedList !! wordIndex),
         GS.guessedWords = [],
-        GS.letters = [],
+        GS.letters = Map.fromList $ zip ['A'..'Z'] [GS.Letter { GS.letter = l, GS.disabled = False } | l <- ['A' .. 'Z']],
         GS.config = GS.GameConfig {
             GS.maxGuesses = 6,
-            GS.wordListPath = "/usr/share/dict/cracklib-small"
+            GS.wordList = prunedList
         },
-        GS.randomGen = rng
+        GS.randomGen = rng'
     }
+    where
+        pruneWordList :: [String] -> [String]
+        pruneWordList wl = (map . map) toUpper $ filter (all (\c -> c `elem` ['a'..'z'])) wl
+
+isValidWord :: [String] -> String -> Bool
+isValidWord wordList word = word `elem` wordList
+
+isValidLetters :: Map.Map Char GS.Letter -> String -> Bool
+isValidLetters letterMap word = 
+    let letterString = Map.elems $ fmap GS.letter (Map.filter (not . GS.disabled) letterMap)
+    in
+        all (`elem` letterString) word
 
 checkValidity :: String -> GS.GameState rng -> Either String ()
 checkValidity guess gs
     | length guess > length (GS.targetWord gs) = Left "Your word is too long!"
     | length guess < length (GS.targetWord gs) = Left "Your word is too short!"
---    | any $ map () guess = Left "Your word is too short!"
+    | not (isValidLetters (GS.letters gs) guess) = Left "Your word used letters that aren't in the letter bank!"
+    | not (isValidWord (GS.wordList $ GS.config gs) guess) = Left (guess ++ " is not a word!")
     | otherwise = Right ()
 
 makeGuess :: String -> GS.GameState rng -> Either String (GS.GameState rng)
-makeGuess guess gs = checkValidity guess gs >> Right (gs { GS.guessedWords = formatGuess guess : GS.guessedWords gs })
+makeGuess guess gs =
+    checkValidity (formatGuess guess) gs >> Right (gs { 
+        GS.guessedWords = formatGuess guess : GS.guessedWords gs, 
+        GS.letters = rejectLetters (GS.letters gs) (GS.targetWord gs) guess
+    })
     where
         formatGuess :: String -> String
         formatGuess = map toUpper
+
+        disableLetters :: Map.Map Char GS.Letter -> String -> Map.Map Char GS.Letter
+        disableLetters letterMap str = Map.mapWithKey (\char letter -> letter { GS.disabled = char `elem` map toUpper str }) letterMap
+
+        rejectLetters :: Map.Map Char GS.Letter -> String -> String -> Map.Map Char GS.Letter
+        rejectLetters letterMap targetWord word = 
+            let lettersToReject = filter (`notElem` targetWord) word
+            in
+                disableLetters letterMap lettersToReject
 
 gameLoop :: GS.GameState rng -> IO ()
 gameLoop gs = do
@@ -43,8 +77,7 @@ gameLoop gs = do
 
 main :: IO ()
 main = do
-    rng <- newStdGen
-    let gs = mkStdGameState rng
+    gs <- mkStdGameState
     gameLoop gs
     
     
