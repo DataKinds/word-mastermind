@@ -11,7 +11,7 @@ mkStdGameState :: IO (GS.GameState StdGen)
 mkStdGameState = do
     rng <- newStdGen
     wordList <- readFile "/usr/share/dict/words"
-    let prunedList = pruneWordList [6] $ lines wordList
+    let prunedList = pruneWordList [7] $ lines wordList
     let (wordIndex, rng') = randomR (0, length prunedList - 1) rng
 
     return GS.GameState {
@@ -56,7 +56,7 @@ makeGuess guess gs =
         formatGuess = map toUpper
 
         disableLetters :: Map.Map Char GS.Letter -> String -> Map.Map Char GS.Letter
-        disableLetters letterMap str = Map.mapWithKey (\char letter -> letter { GS.disabled = char `elem` map toUpper str }) letterMap
+        disableLetters letterMap str = Map.mapWithKey (\char letter -> letter { GS.disabled = GS.disabled letter || (char `elem` map toUpper str) }) letterMap
 
         rejectLetters :: Map.Map Char GS.Letter -> String -> String -> Map.Map Char GS.Letter
         rejectLetters letterMap targetWord word = 
