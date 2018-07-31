@@ -11,7 +11,7 @@ mkStdGameState :: IO (GS.GameState StdGen)
 mkStdGameState = do
     rng <- newStdGen
     wordList <- readFile "/usr/share/dict/words"
-    let prunedList = pruneWordList $ lines wordList
+    let prunedList = pruneWordList [6] $ lines wordList
     let (wordIndex, rng') = randomR (0, length prunedList - 1) rng
 
     return GS.GameState {
@@ -19,14 +19,14 @@ mkStdGameState = do
         GS.guessedWords = [],
         GS.letters = Map.fromList $ zip ['A'..'Z'] [GS.Letter { GS.letter = l, GS.disabled = False } | l <- ['A' .. 'Z']],
         GS.config = GS.GameConfig {
-            GS.maxGuesses = 6,
+            GS.maxGuesses = 10,
             GS.wordList = prunedList
         },
         GS.randomGen = rng'
     }
     where
-        pruneWordList :: [String] -> [String]
-        pruneWordList wl = (map . map) toUpper $ filter (all (\c -> c `elem` ['a'..'z'])) wl
+        pruneWordList :: [Int] -> [String] -> [String]
+        pruneWordList wordLengths wl = filter (\word -> length word `elem` wordLengths) $ (map . map) toUpper $ filter (all (\c -> c `elem` ['a'..'z'])) wl
 
 isValidWord :: [String] -> String -> Bool
 isValidWord wordList word = word `elem` wordList
