@@ -13,7 +13,7 @@ data Letter = Letter {
 }
 
 instance Show Letter where
-    show Letter { letter = l, disabled = True } = concat ["\ESC[38;5;238m", [l], "\ESC[0m"]
+    show Letter { letter = l, disabled = True } = concat ["\ESC[38;5;234m", [l], "\ESC[0m"]
     show Letter { letter = l, disabled = False } = [l]
 
 data GameConfig = GameConfig {

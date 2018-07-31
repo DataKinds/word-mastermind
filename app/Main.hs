@@ -10,7 +10,7 @@ import qualified GameState as GS
 mkStdGameState :: IO (GS.GameState StdGen)
 mkStdGameState = do
     rng <- newStdGen
-    wordList <- readFile "/usr/share/dict/cracklib-small"
+    wordList <- readFile "/usr/share/dict/words"
     let prunedList = pruneWordList $ lines wordList
     let (wordIndex, rng') = randomR (0, length prunedList - 1) rng
 
