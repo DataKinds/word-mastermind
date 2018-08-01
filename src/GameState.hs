@@ -18,7 +18,9 @@ instance Show Letter where
 
 data GameConfig = GameConfig {
     maxGuesses :: Int,
-    wordList :: [String]
+    wordLengths :: [Int],
+    wordList :: [String],
+    wordListPath :: String
 }
 
 data GameState rng = GameState {

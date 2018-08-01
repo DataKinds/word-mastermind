@@ -6,12 +6,14 @@ import Debug.Trace
 import qualified Data.Map.Strict as Map
 import qualified GameState as GS
 
+pruneWordList :: [Int] -> [String] -> [String]
+pruneWordList wordLengths wl = filter (\word -> length word `elem` wordLengths) $ (map . map) toUpper $ filter (all (\c -> c `elem` ['a'..'z'])) wl
 
 mkStdGameState :: IO (GS.GameState StdGen)
 mkStdGameState = do
     rng <- newStdGen
     wordList <- readFile "/usr/share/dict/words"
-    let prunedList = pruneWordList [3] $ lines wordList
+    let prunedList = pruneWordList [4..7] $ lines wordList
     let (wordIndex, rng') = randomR (0, length prunedList - 1) rng
 
     return GS.GameState {
@@ -20,13 +22,12 @@ mkStdGameState = do
         GS.letters = Map.fromList $ zip ['A'..'Z'] [GS.Letter { GS.letter = l, GS.disabled = False } | l <- ['A' .. 'Z']],
         GS.config = GS.GameConfig {
             GS.maxGuesses = 10,
-            GS.wordList = prunedList
+            GS.wordLengths = [4..7],
+            GS.wordList = prunedList,
+            GS.wordListPath = "/usr/share/dict/words"
         },
         GS.randomGen = rng'
     }
-    where
-        pruneWordList :: [Int] -> [String] -> [String]
-        pruneWordList wordLengths wl = filter (\word -> length word `elem` wordLengths) $ (map . map) toUpper $ filter (all (\c -> c `elem` ['a'..'z'])) wl
 
 isValidWord :: [String] -> String -> Bool
 isValidWord wordList word = word `elem` wordList
@@ -66,6 +67,33 @@ makeGuess guess gs =
             in
                 disableLetters letterMap lettersToReject
 
+mainMenuLoop :: GS.GameState rng -> IO (GS.GameState rng)
+mainMenuLoop gs = do
+    putStrLn titleArt
+    putStrLn ""
+    putStrLn "Please strike the indicated key to modify each of these settings, or (r)un the game:"
+    putStrLn ("  Current word (l)engths: " ++ show (GS.wordLengths $ GS.config gs))
+    putStrLn ("  Max (g)uesses: " ++ show (GS.maxGuesses $ GS.config gs))
+    putStrLn ("  Wordlist (p)ath: " ++ show (GS.wordListPath $ GS.config gs))
+    key <- getLine
+    case key of
+        "r" -> return gs
+        "l" -> do
+            putStrLn "Change the word legnths:"
+            mainMenuLoop gs
+        "g" -> do
+            putStrLn "Change the max guesses:"
+            mainMenuLoop gs
+        "p" -> do
+            putStrLn "Change the wordlist path:"
+            mainMenuLoop gs
+        _ -> do
+            putStrLn ("Unrecognized key " ++ key)
+            mainMenuLoop gs
+    where
+        titleArt = "\ESC[0;1;35;95m▌\ESC[0m \ESC[0;1;31;91m▌\ESC[0m        \ESC[0;1;34;94m▌\ESC[0;1;35;95m▙▗\ESC[0;1;31;91m▌\ESC[0m      \ESC[0;1;36;96m▐\ESC[0m        \n\ESC[0;1;31;91m▌▖\ESC[0;1;33;93m▌▞\ESC[0;1;32;92m▀▖\ESC[0;1;36;96m▙▀\ESC[0;1;34;94m▖▞\ESC[0;1;35;95m▀▌\ESC[0;1;31;91m▌▘\ESC[0;1;33;93m▌▝\ESC[0;1;32;92m▀▖\ESC[0;1;36;96m▞▀\ESC[0;1;34;94m▘▜\ESC[0;1;35;95m▀\ESC[0m \ESC[0;1;31;91m▞▀\ESC[0;1;33;93m▖▙\ESC[0;1;32;92m▀▖\ESC[0m\n\ESC[0;1;33;93m▙▚\ESC[0;1;32;92m▌▌\ESC[0m \ESC[0;1;36;96m▌\ESC[0;1;34;94m▌\ESC[0m  \ESC[0;1;35;95m▌\ESC[0m \ESC[0;1;31;91m▌\ESC[0;1;33;93m▌\ESC[0m \ESC[0;1;32;92m▌▞\ESC[0;1;36;96m▀▌\ESC[0;1;34;94m▝▀\ESC[0;1;35;95m▖▐\ESC[0m \ESC[0;1;31;91m▖\ESC[0;1;33;93m▛▀\ESC[0m \ESC[0;1;32;92m▌\ESC[0m  \n\ESC[0;1;32;92m▘\ESC[0m \ESC[0;1;36;96m▘▝\ESC[0;1;34;94m▀\ESC[0m \ESC[0;1;35;95m▘\ESC[0m  \ESC[0;1;31;91m▝\ESC[0;1;33;93m▀▘\ESC[0;1;32;92m▘\ESC[0m \ESC[0;1;36;96m▘▝\ESC[0;1;34;94m▀▘\ESC[0;1;35;95m▀▀\ESC[0m  \ESC[0;1;33;93m▀\ESC[0m \ESC[0;1;32;92m▝▀\ESC[0;1;36;96m▘▘\ESC[0m"
+    
+
 gameLoop :: GS.GameState rng -> IO ()
 gameLoop gs =
     if GS.maxGuesses (GS.config gs) < length (GS.guessedWords gs) then do
@@ -88,6 +116,7 @@ gameLoop gs =
 main :: IO ()
 main = do
     gs <- mkStdGameState
-    gameLoop gs
+    gs' <- mainMenuLoop gs
+    gameLoop gs'
     
     
